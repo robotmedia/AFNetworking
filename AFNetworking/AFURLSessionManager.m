@@ -22,6 +22,8 @@
 
 #import "AFURLSessionManager.h"
 
+#if (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000) || (defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 1090)
+
 static dispatch_queue_t url_session_manager_processing_queue() {
     static dispatch_queue_t af_url_session_manager_processing_queue;
     static dispatch_once_t onceToken;
@@ -125,8 +127,8 @@ typedef void (^AFURLSessionTaskCompletionHandler)(NSURLResponse *response, id re
     totalBytesSent:(int64_t)totalBytesSent
 totalBytesExpectedToSend:(int64_t)totalBytesExpectedToSend
 {
-    self.uploadProgress.completedUnitCount = totalBytesSent;
     self.uploadProgress.totalUnitCount = totalBytesExpectedToSend;
+    self.uploadProgress.completedUnitCount = totalBytesSent;
 }
 
 - (void)URLSession:(__unused NSURLSession *)session
@@ -227,16 +229,16 @@ didFinishDownloadingToURL:(NSURL *)location
  totalBytesWritten:(int64_t)totalBytesWritten
 totalBytesExpectedToWrite:(int64_t)totalBytesExpectedToWrite
 {
-    self.downloadProgress.completedUnitCount = totalBytesWritten;
     self.downloadProgress.totalUnitCount = totalBytesExpectedToWrite;
+    self.downloadProgress.completedUnitCount = totalBytesWritten;
 }
 
 - (void)URLSession:(__unused NSURLSession *)session
       downloadTask:(__unused NSURLSessionDownloadTask *)downloadTask
  didResumeAtOffset:(int64_t)fileOffset
 expectedTotalBytes:(int64_t)expectedTotalBytes {
-    self.downloadProgress.completedUnitCount = fileOffset;
     self.downloadProgress.totalUnitCount = expectedTotalBytes;
+    self.downloadProgress.completedUnitCount = fileOffset;
 }
 
 @end
@@ -845,3 +847,5 @@ expectedTotalBytes:(int64_t)expectedTotalBytes
 }
 
 @end
+
+#endif
