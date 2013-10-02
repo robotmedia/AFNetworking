@@ -22,9 +22,15 @@
 
 #import "UIProgressView+AFNetworking.h"
 
+#import <objc/runtime.h>
+
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED)
+
 #import "AFURLConnectionOperation.h"
 
-#import <objc/runtime.h>
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000
+#import "AFURLSessionManager.h"
+#endif
 
 static void * AFTaskCountOfBytesSentContext = &AFTaskCountOfBytesSentContext;
 static void * AFTaskCountOfBytesReceivedContext = &AFTaskCountOfBytesReceivedContext;
@@ -33,18 +39,18 @@ static char kAFUploadProgressAnimated;
 static char kAFDownloadProgressAnimated;
 
 @interface AFURLConnectionOperation (_UIProgressView)
-@property (readwrite, nonatomic, copy) void (^af_uploadProgress)(NSUInteger bytes, long long totalBytes, long long totalBytesExpected);
+@property (readwrite, nonatomic, copy) void (^uploadProgress)(NSUInteger bytes, long long totalBytes, long long totalBytesExpected);
 @property (readwrite, nonatomic, assign, setter = af_setUploadProgressAnimated:) BOOL af_uploadProgressAnimated;
 
-@property (readwrite, nonatomic, copy) void (^af_downloadProgress)(NSUInteger bytes, long long totalBytes, long long totalBytesExpected);
+@property (readwrite, nonatomic, copy) void (^downloadProgress)(NSUInteger bytes, long long totalBytes, long long totalBytesExpected);
 @property (readwrite, nonatomic, assign, setter = af_setDownloadProgressAnimated:) BOOL af_downloadProgressAnimated;
 @end
 
 @implementation AFURLConnectionOperation (_UIProgressView)
-@dynamic af_uploadProgress;
+@dynamic uploadProgress; // Implemented in AFURLConnectionOperation
 @dynamic af_uploadProgressAnimated;
 
-@dynamic af_downloadProgress;
+@dynamic downloadProgress; // Implemented in AFURLConnectionOperation
 @dynamic af_downloadProgressAnimated;
 @end
 
@@ -70,6 +76,8 @@ static char kAFDownloadProgressAnimated;
 
 #pragma mark -
 
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000
+
 - (void)setProgressWithUploadProgressOfTask:(NSURLSessionUploadTask *)task
                                    animated:(BOOL)animated
 {
@@ -88,13 +96,15 @@ static char kAFDownloadProgressAnimated;
     [self af_setDownloadProgressAnimated:animated];
 }
 
+#endif
+
 #pragma mark -
 
 - (void)setProgressWithUploadProgressOfOperation:(AFURLConnectionOperation *)operation
                                         animated:(BOOL)animated
 {
     __weak __typeof(self)weakSelf = self;
-    void (^original)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) = [operation.af_uploadProgress copy];
+    void (^original)(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) = [operation.uploadProgress copy];
     [operation setUploadProgressBlock:^(NSUInteger bytesWritten, long long totalBytesWritten, long long totalBytesExpectedToWrite) {
         if (original) {
             original(bytesWritten, totalBytesWritten, totalBytesExpectedToWrite);
@@ -112,7 +122,7 @@ static char kAFDownloadProgressAnimated;
                                           animated:(BOOL)animated
 {
     __weak __typeof(self)weakSelf = self;
-    void (^original)(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) = [operation.af_downloadProgress copy];
+    void (^original)(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) = [operation.downloadProgress copy];
     [operation setDownloadProgressBlock:^(NSUInteger bytesRead, long long totalBytesRead, long long totalBytesExpectedToRead) {
         if (original) {
             original(bytesRead, totalBytesRead, totalBytesExpectedToRead);
@@ -140,13 +150,18 @@ static char kAFDownloadProgressAnimated;
                     [self setProgress:[object countOfBytesSent] / ([object countOfBytesExpectedToSend] * 1.0f) animated:self.af_uploadProgressAnimated];
                 });
             }
-        } else if ([keyPath isEqualToString:NSStringFromSelector(@selector(countOfBytesReceived))]) {
+        }
+
+        if ([keyPath isEqualToString:NSStringFromSelector(@selector(countOfBytesReceived))]) {
             if ([object countOfBytesExpectedToReceive] > 0) {
                 dispatch_async(dispatch_get_main_queue(), ^{
                     [self setProgress:[object countOfBytesReceived] / ([object countOfBytesExpectedToReceive] * 1.0f) animated:self.af_downloadProgressAnimated];
                 });
             }
-        } else if ([keyPath isEqualToString:NSStringFromSelector(@selector(state))]) {
+        }
+
+#if __IPHONE_OS_VERSION_MIN_REQUIRED >= 70000
+        if ([keyPath isEqualToString:NSStringFromSelector(@selector(state))]) {
             if ([(NSURLSessionTask *)object state] == NSURLSessionTaskStateCompleted) {
                 @try {
                     [object removeObserver:self forKeyPath:NSStringFromSelector(@selector(state))];
@@ -162,7 +177,10 @@ static char kAFDownloadProgressAnimated;
                 @catch (NSException * __unused exception) {}
             }
         }
+#endif
     }
 }
 
 @end
+
+#endif
